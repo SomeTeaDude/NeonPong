@@ -270,7 +270,7 @@ const ModernPong = () => {
       conn.on('close', () => {
         disconnectOnline();
       });
-
+      
       startGame();
     });
 
@@ -282,7 +282,7 @@ const ModernPong = () => {
 
   const connectToOpponent = useCallback((peerId) => {
     if (!peerRef.current) return;
-    
+
     const conn = peerRef.current.connect(peerId);
     connectionRef.current = conn;
 
