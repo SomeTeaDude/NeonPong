@@ -182,7 +182,7 @@ const ModernPong = () => {
     });
   }, []);
 
-  const disconnectOnline = useCallback(() => {
+  const disconnectOnline = useCallback((s = true) => {
     if (connectionRef.current) {
       connectionRef.current.close();
       connectionRef.current = null;
@@ -194,7 +194,9 @@ const ModernPong = () => {
     setOnlineStatus('disconnected');
     setSearchingMatch(false);
     setGameState('menu');
-    setGameMode(null);
+    if (s) {
+      setGameMode(null);
+    }
     setEnteredRoomId("")
   }, []);
 
@@ -581,7 +583,7 @@ const ModernPong = () => {
       initOnlineMode();
     } else {
       setSearchingMatch(false);
-      disconnectOnline();
+      disconnectOnline(false);
       startGame();
     }
   };
