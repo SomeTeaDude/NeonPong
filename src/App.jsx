@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Pause, Play, RotateCcw, WifiOff, Bot, UsersRound, Globe } from 'lucide-react';
+import { Pause, Play, RotateCcw, WifiOff, Bot, UsersRound, Globe, Home } from 'lucide-react';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -580,6 +580,8 @@ const ModernPong = () => {
     if (mode === 'online') {
       initOnlineMode();
     } else {
+      setSearchingMatch(false);
+      disconnectOnline();
       startGame();
     }
   };
@@ -631,10 +633,7 @@ const ModernPong = () => {
         )}
 
         {searchingMatch && (
-          <div className="text-center space-y-6">
-            <div className="text-4xl font-bold text-cyan-400 animate-pulse">
-              Searching for opponent...
-            </div>
+          <div className="text-center space-y-6 mt-4">
             <div className="text-lg text-white bg-slate-800 p-4 rounded-lg inline-block">
               Your Room ID: <span className="text-cyan-300 font-mono">{roomId}</span>
             </div>
@@ -674,6 +673,16 @@ const ModernPong = () => {
             <div className="flex justify-center gap-2">
               {gameMode !== 'online' && (
                 <>
+                  <button
+                    onClick={() => {
+                      setGameState('menu');
+                      setGameMode(null);
+                      resetGame();
+                    }}
+                    className="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-lg transition"
+                  >
+                    <Home size={20} />
+                  </button>
                   <button
                     onClick={() => setIsPaused(!isPaused)}
                     className="bg-slate-700 hover:bg-slate-600 text-white p-3 rounded-lg transition"
