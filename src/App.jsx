@@ -1,15 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Pause,
-  Play,
-  RotateCcw,
-  WifiOff,
-  Bot,
-  UsersRound,
-  Globe,
-  Home,
-  Palette,
-} from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Pause, Play, RotateCcw, WifiOff, Bot, UsersRound, Globe, Home, Palette } from 'lucide-react';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
@@ -23,12 +13,12 @@ const FPS = 60;
 const FRAME_INTERVAL = 1000 / FPS;
 
 const POWERUP_TYPES = [
-  { id: "shrink", color: "#ef4444", emoji: "📉" },
-  { id: "grow", color: "#10b981", emoji: "📈" },
-  { id: "point", color: "#fbbf24", emoji: "⭐" },
-  { id: "speedUp", color: "#3b82f6", emoji: "⚡" },
-  { id: "slowDown", color: "#8b5cf6", emoji: "🐌" },
-  { id: "multiBall", color: "#ec4899", emoji: "🎯" },
+  { id: 'shrink', color: '#ef4444', emoji: '📉' },
+  { id: 'grow', color: '#10b981', emoji: '📈' },
+  { id: 'point', color: '#fbbf24', emoji: '⭐' },
+  { id: 'speedUp', color: '#3b82f6', emoji: '⚡' },
+  { id: 'slowDown', color: '#8b5cf6', emoji: '🐌' },
+  { id: 'multiBall', color: '#ec4899', emoji: '🎯' }
 ];
 
 // Theme configurations
@@ -116,23 +106,20 @@ const THEMES = {
 const ModernPong = () => {
   const canvasRef = useRef(null);
   const [gameMode, setGameMode] = useState(null);
-  const [gameState, setGameState] = useState("menu");
+  const [gameState, setGameState] = useState('menu');
   const [winPoints, setWinPoints] = useState(5);
   const [isPaused, setIsPaused] = useState(false);
-  const [mobileControls, setMobileControls] = useState({
-    p1Up: false,
-    p1Down: false,
-    p2Up: false,
-    p2Down: false,
-  });
-  const [onlineStatus, setOnlineStatus] = useState("disconnected");
+  const [mobileControls, setMobileControls] = useState({ p1Up: false, p1Down: false, p2Up: false, p2Down: false });
+  const [onlineStatus, setOnlineStatus] = useState('disconnected');
   const [searchingMatch, setSearchingMatch] = useState(false);
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [enteredRoomId, setEnteredRoomId] = useState("");
   const [currentTheme, setCurrentTheme] = useState("neon");
   const [showThemeSelector, setShowThemeSelector] = useState(false);
-
+  const [brokenPaddle, setBrokenPaddle] = useState(null);
+  const [isBreaking, setIsBreaking] = useState(false);
+  
   const keysRef = useRef({});
   const peerRef = useRef(null);
   const connectionRef = useRef(null);
@@ -142,41 +129,25 @@ const ModernPong = () => {
   const lastPowerupTimeRef = useRef(0);
   const scoreRef = useRef({ p1: 0, p2: 0 });
   const particlesRef = useRef([]);
-
+  const brokenPaddlePiecesRef = useRef([]);
+  
   const gameObjectsRef = useRef({
-    paddle1: {
-      x: 30,
-      y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-      width: PADDLE_WIDTH,
-      height: PADDLE_HEIGHT,
-      speed: PADDLE_SPEED,
-    },
-    paddle2: {
-      x: CANVAS_WIDTH - 30 - PADDLE_WIDTH,
-      y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-      width: PADDLE_WIDTH,
-      height: PADDLE_HEIGHT,
-      speed: PADDLE_SPEED,
-    },
-    balls: [
-      {
-        x: CANVAS_WIDTH / 2,
-        y: CANVAS_HEIGHT / 2,
-        dx: INITIAL_BALL_SPEED,
-        dy: INITIAL_BALL_SPEED,
-        speed: INITIAL_BALL_SPEED,
-      },
-    ],
-    powerups: [],
+    paddle1: { x: 30, y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2, width: PADDLE_WIDTH, height: PADDLE_HEIGHT, speed: PADDLE_SPEED },
+    paddle2: { x: CANVAS_WIDTH - 30 - PADDLE_WIDTH, y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2, width: PADDLE_WIDTH, height: PADDLE_HEIGHT, speed: PADDLE_SPEED },
+    balls: [{ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, dx: INITIAL_BALL_SPEED, dy: INITIAL_BALL_SPEED, speed: INITIAL_BALL_SPEED }],
+    powerups: []
   });
-
+  
   // Get current theme
-  const theme = THEMES[currentTheme];
+  let theme = THEMES[currentTheme];
+
+  useEffect(() => {
+    theme = THEMES[currentTheme];
+  }, [currentTheme])
 
   // Initialize audio context
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext ||
-      window.webkitAudioContext)();
+    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -184,27 +155,24 @@ const ModernPong = () => {
     };
   }, []);
 
-  const playSound = useCallback((frequency, duration, type = "sine") => {
+  const playSound = useCallback((frequency, duration, type = 'sine') => {
     if (!audioContextRef.current) return;
     try {
       const oscillator = audioContextRef.current.createOscillator();
       const gainNode = audioContextRef.current.createGain();
-
+      
       oscillator.connect(gainNode);
       gainNode.connect(audioContextRef.current.destination);
-
+      
       oscillator.frequency.value = frequency;
       oscillator.type = type;
       gainNode.gain.setValueAtTime(0.3, audioContextRef.current.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(
-        0.01,
-        audioContextRef.current.currentTime + duration
-      );
-
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + duration);
+      
       oscillator.start(audioContextRef.current.currentTime);
       oscillator.stop(audioContextRef.current.currentTime + duration);
     } catch (e) {
-      console.error("Audio error:", e);
+      console.error('Audio error:', e);
     }
   }, []);
 
@@ -212,16 +180,47 @@ const ModernPong = () => {
     const newParticles = [];
     for (let i = 0; i < 15; i++) {
       newParticles.push({
-        x,
-        y,
+        x, y,
         dx: (Math.random() - 0.5) * 8,
         dy: (Math.random() - 0.5) * 8,
         life: 1,
-        color,
+        color
       });
     }
     particlesRef.current = [...particlesRef.current, ...newParticles];
   }, []);
+
+  const createBrokenPaddleEffect = useCallback((paddle, isP1) => {
+    const pieces = [];
+    const pieceHeight = paddle.height / 5;
+    const color = isP1 ? theme.p1Color : theme.p2Color;
+    
+    for (let i = 0; i < 5; i++) {
+      pieces.push({
+        x: paddle.x,
+        y: paddle.y + (i * pieceHeight),
+        width: paddle.width,
+        height: pieceHeight,
+        color: color,
+        dy: 2 + Math.random() * 3,
+        rotation: (Math.random() - 0.5) * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.2,
+        life: 1
+      });
+    }
+    
+    brokenPaddlePiecesRef.current = pieces;
+    setBrokenPaddle(isP1 ? 'p1' : 'p2');
+    setIsBreaking(true);
+    
+    playSound(300, 0.5, 'sawtooth');
+    
+    setTimeout(() => {
+      setBrokenPaddle(null);
+      brokenPaddlePiecesRef.current = [];
+      setIsBreaking(false);
+    }, 1000);
+  }, [playSound]);
 
   const sendToOpponent = useCallback((data) => {
     if (connectionRef.current && connectionRef.current.open) {
@@ -230,9 +229,8 @@ const ModernPong = () => {
   }, []);
 
   function generateShortId(length = 6) {
-    const chars =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let id = "";
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let id = '';
     for (let i = 0; i < length; i++) {
       id += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -241,68 +239,72 @@ const ModernPong = () => {
 
   const initOnlineMode = useCallback(() => {
     if (!window.Peer) {
-      alert("PeerJS not loaded. Please refresh the page.");
+      alert('PeerJS not loaded. Please refresh the page.');
       return;
     }
-
+    
     setSearchingMatch(true);
     const peer = new window.Peer(generateShortId());
     peerRef.current = peer;
 
-    peer.on("open", (id) => {
+    peer.on('open', (id) => {
       setRoomId(id);
-      setOnlineStatus("searching");
+      setOnlineStatus('searching');
     });
 
-    peer.on("connection", (conn) => {
+    peer.on('connection', (conn) => {
       connectionRef.current = conn;
       setIsHost(true);
       setSearchingMatch(false);
-      setOnlineStatus("connected");
-
-      conn.on("data", (data) => {
-        if (data.type === "paddle") {
+      setOnlineStatus('connected');
+      
+      conn.on('data', (data) => {
+        if (data.type === 'paddle') {
           gameObjectsRef.current.paddle2.y = data.y;
-        } else if (data.type === "gameState") {
+        } else if (data.type === 'gameState') {
           gameObjectsRef.current = data.state;
           scoreRef.current = data.score;
         }
       });
 
-      conn.on("close", () => {
+      conn.on('close', () => {
         disconnectOnline();
       });
 
       startGame();
     });
 
-    peer.on("error", (err) => {
-      console.error("Peer error:", err);
-      setOnlineStatus("error");
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      setOnlineStatus('error');
     });
   }, []);
 
   const connectToOpponent = useCallback((peerId) => {
     if (!peerRef.current) return;
-
+    
     const conn = peerRef.current.connect(peerId);
     connectionRef.current = conn;
 
-    conn.on("open", () => {
+    conn.on('open', () => {
       setIsHost(false);
       setSearchingMatch(false);
-      setOnlineStatus("connected");
+      setOnlineStatus('connected');
+      
+      conn.on('data', (data) => {
+        if (!isHost && data.type === 'winPoints' && data.state !== winPoints) {
+          setWinPoints(data.state);
+        }
 
-      conn.on("data", (data) => {
-        if (data.type === "paddle") {
+        if (data.type === 'paddle') {
           gameObjectsRef.current.paddle2.y = data.y;
-        } else if (data.type === "gameState") {
+        } else if (data.type === 'gameState') {
           gameObjectsRef.current = data.state;
           scoreRef.current = data.score;
         }
       });
 
-      conn.on("close", () => {
+      conn.on('close', () => {
         disconnectOnline();
       });
 
@@ -319,13 +321,13 @@ const ModernPong = () => {
       peerRef.current.destroy();
       peerRef.current = null;
     }
-    setOnlineStatus("disconnected");
+    setOnlineStatus('disconnected');
     setSearchingMatch(false);
-    setGameState("menu");
+    setGameState('menu');
     if (s) {
       setGameMode(null);
     }
-    setEnteredRoomId("");
+    setEnteredRoomId("")
   }, []);
 
   const resetBall = useCallback((ballIndex = 0) => {
@@ -335,108 +337,88 @@ const ModernPong = () => {
       y: CANVAS_HEIGHT / 2,
       dx: (Math.random() > 0.5 ? 1 : -1) * INITIAL_BALL_SPEED,
       dy: (Math.random() - 0.5) * INITIAL_BALL_SPEED,
-      speed: INITIAL_BALL_SPEED,
+      speed: INITIAL_BALL_SPEED
     };
   }, []);
 
   const resetGame = useCallback(() => {
     gameObjectsRef.current = {
-      paddle1: {
-        x: 30,
-        y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-        width: PADDLE_WIDTH,
-        height: PADDLE_HEIGHT,
-        speed: PADDLE_SPEED,
-      },
-      paddle2: {
-        x: CANVAS_WIDTH - 30 - PADDLE_WIDTH,
-        y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-        width: PADDLE_WIDTH,
-        height: PADDLE_HEIGHT,
-        speed: PADDLE_SPEED,
-      },
-      balls: [
-        {
-          x: CANVAS_WIDTH / 2,
-          y: CANVAS_HEIGHT / 2,
-          dx: INITIAL_BALL_SPEED,
-          dy: INITIAL_BALL_SPEED,
-          speed: INITIAL_BALL_SPEED,
-        },
-      ],
-      powerups: [],
+      paddle1: { x: 30, y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2, width: PADDLE_WIDTH, height: PADDLE_HEIGHT, speed: PADDLE_SPEED },
+      paddle2: { x: CANVAS_WIDTH - 30 - PADDLE_WIDTH, y: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2, width: PADDLE_WIDTH, height: PADDLE_HEIGHT, speed: PADDLE_SPEED },
+      balls: [{ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, dx: INITIAL_BALL_SPEED, dy: INITIAL_BALL_SPEED, speed: INITIAL_BALL_SPEED }],
+      powerups: []
     };
     scoreRef.current = { p1: 0, p2: 0 };
     particlesRef.current = [];
     setIsPaused(false);
     lastPowerupTimeRef.current = 0;
+    setBrokenPaddle(null);
+    brokenPaddlePiecesRef.current = [];
+    setIsBreaking(false);
   }, []);
 
   const startGame = useCallback(() => {
     resetGame();
-    setGameState("playing");
+    setGameState('playing');
   }, [resetGame]);
 
-  const applyPowerup = useCallback(
-    (powerup, collector) => {
-      const { paddle1, paddle2 } = gameObjectsRef.current;
-      const isP1 = collector === "p1";
-      const playerPaddle = isP1 ? paddle1 : paddle2;
-      const opponentPaddle = isP1 ? paddle2 : paddle1;
+  const applyPowerup = useCallback((powerup, collector) => {
+    const { paddle1, paddle2 } = gameObjectsRef.current;
+    const isP1 = collector === 'p1';
+    const playerPaddle = isP1 ? paddle1 : paddle2;
+    const opponentPaddle = isP1 ? paddle2 : paddle1;
 
-      playSound(800, 0.2, "square");
-      createParticles(powerup.x, powerup.y, powerup.color);
+    playSound(800, 0.2, 'square');
+    createParticles(powerup.x, powerup.y, powerup.color);
 
-      switch (powerup.type) {
-        case "shrink":
-          opponentPaddle.height = Math.max(50, opponentPaddle.height - 20);
-          setTimeout(() => (opponentPaddle.height = PADDLE_HEIGHT), 5000);
-          break;
-        case "grow":
-          playerPaddle.height = Math.min(150, playerPaddle.height + 20);
-          setTimeout(() => (playerPaddle.height = PADDLE_HEIGHT), 5000);
-          break;
-        case "point":
-          scoreRef.current[collector]++;
-          if (scoreRef.current[collector] >= winPoints) {
-            setGameState("gameOver");
-            playSound(600, 0.5, "triangle");
-          }
-          break;
-        case "speedUp":
-          playerPaddle.speed = PADDLE_SPEED * 1.5;
-          setTimeout(() => (playerPaddle.speed = PADDLE_SPEED), 5000);
-          break;
-        case "slowDown":
-          opponentPaddle.speed = PADDLE_SPEED * 0.5;
-          setTimeout(() => (opponentPaddle.speed = PADDLE_SPEED), 5000);
-          break;
-        case "multiBall":
-          if (gameObjectsRef.current.balls.length < 3) {
-            const newBall = {
-              x: CANVAS_WIDTH / 2,
-              y: CANVAS_HEIGHT / 2,
-              dx: (Math.random() > 0.5 ? 1 : -1) * INITIAL_BALL_SPEED,
-              dy: (Math.random() - 0.5) * INITIAL_BALL_SPEED,
-              speed: INITIAL_BALL_SPEED,
-            };
-            gameObjectsRef.current.balls.push(newBall);
-          }
-          break;
-      }
-    },
-    [playSound, createParticles]
-  );
+    switch(powerup.type) {
+      case 'shrink':
+        opponentPaddle.height = Math.max(50, opponentPaddle.height - 20);
+        setTimeout(() => opponentPaddle.height = PADDLE_HEIGHT, 5000);
+        break;
+      case 'grow':
+        playerPaddle.height = Math.min(150, playerPaddle.height + 20);
+        setTimeout(() => playerPaddle.height = PADDLE_HEIGHT, 5000);
+        break;
+      case 'point':
+        scoreRef.current[collector]++;
+        if (scoreRef.current[collector] >= winPoints) {
+          setGameState('gameOver');
+          playSound(600, 0.5, 'triangle');
+        }
+        break;
+      case 'speedUp':
+        playerPaddle.speed = PADDLE_SPEED * 1.5;
+        setTimeout(() => playerPaddle.speed = PADDLE_SPEED, 5000);
+        break;
+      case 'slowDown':
+        opponentPaddle.speed = PADDLE_SPEED * 0.5;
+        setTimeout(() => opponentPaddle.speed = PADDLE_SPEED, 5000);
+        break;
+      case 'multiBall':
+        if (gameObjectsRef.current.balls.length < 3) {
+          const newBall = {
+            x: CANVAS_WIDTH / 2,
+            y: CANVAS_HEIGHT / 2,
+            dx: (Math.random() > 0.5 ? 1 : -1) * INITIAL_BALL_SPEED,
+            dy: (Math.random() - 0.5) * INITIAL_BALL_SPEED,
+            speed: INITIAL_BALL_SPEED
+          };
+          gameObjectsRef.current.balls.push(newBall);
+        }
+        break;
+    }
+  }, [playSound, createParticles]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
+    const ctx = canvas.getContext('2d');
+    
     // Background
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
+    
     // Center line
     ctx.strokeStyle = theme.centerLine;
     ctx.lineWidth = 2;
@@ -448,8 +430,8 @@ const ModernPong = () => {
     ctx.setLineDash([]);
 
     // Score
-    ctx.font = "bold 48px Arial";
-    ctx.textAlign = "center";
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
     ctx.fillStyle = theme.p1Color;
     ctx.fillText(scoreRef.current.p1, CANVAS_WIDTH / 4, 60);
     ctx.fillStyle = theme.p2Color;
@@ -458,7 +440,9 @@ const ModernPong = () => {
     const { paddle1, paddle2, balls, powerups } = gameObjectsRef.current;
 
     // Paddles with glow
-    const drawPaddle = (paddle, color) => {
+    const drawPaddle = (paddle, color, isBroken) => {
+      if (isBroken) return;
+      
       ctx.shadowBlur = 20;
       ctx.shadowColor = color;
       ctx.fillStyle = color;
@@ -466,11 +450,21 @@ const ModernPong = () => {
       ctx.shadowBlur = 0;
     };
 
-    drawPaddle(paddle1, theme.p1Color);
-    drawPaddle(paddle2, theme.p2Color);
+    drawPaddle(paddle1, theme.p1Color, brokenPaddle === 'p1');
+    drawPaddle(paddle2, theme.p2Color, brokenPaddle === 'p2');
+
+    // Draw broken paddle pieces
+    brokenPaddlePiecesRef.current.forEach(piece => {
+      ctx.save();
+      ctx.translate(piece.x + piece.width / 2, piece.y + piece.height / 2);
+      ctx.rotate(piece.rotation);
+      ctx.fillStyle = piece.color;
+      ctx.fillRect(-piece.width / 2, -piece.height / 2, piece.width, piece.height);
+      ctx.restore();
+    });
 
     // Balls with trail
-    balls.forEach((ball) => {
+    balls.forEach(ball => {
       ctx.shadowBlur = 25;
       ctx.shadowColor = theme.ballGlow;
       ctx.fillStyle = theme.ballColor;
@@ -481,267 +475,240 @@ const ModernPong = () => {
     });
 
     // Powerups
-    powerups.forEach((powerup) => {
+    powerups.forEach(powerup => {
       ctx.save();
       ctx.translate(powerup.x, powerup.y);
       ctx.rotate(powerup.rotation);
       ctx.shadowBlur = 15;
       ctx.shadowColor = powerup.color;
       ctx.fillStyle = powerup.color;
-      ctx.fillRect(
-        -POWERUP_SIZE / 2,
-        -POWERUP_SIZE / 2,
-        POWERUP_SIZE,
-        POWERUP_SIZE
-      );
+      ctx.fillRect(-POWERUP_SIZE/2, -POWERUP_SIZE/2, POWERUP_SIZE, POWERUP_SIZE);
       ctx.shadowBlur = 0;
-      ctx.font = "16px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(powerup.emoji, 0, 0);
       ctx.restore();
     });
 
     // Particles
-    particlesRef.current.forEach((p) => {
-      ctx.fillStyle = `${p.color}${Math.floor(p.life * 255)
-        .toString(16)
-        .padStart(2, "0")}`;
+    particlesRef.current.forEach(p => {
+      ctx.fillStyle = `${p.color}${Math.floor(p.life * 255).toString(16).padStart(2, '0')}`;
       ctx.fillRect(p.x, p.y, 3, 3);
     });
 
     // Pause overlay
     if (isPaused) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      ctx.font = "bold 72px Arial";
+      ctx.font = 'bold 72px Arial';
       ctx.fillStyle = theme.textColor;
-      ctx.textAlign = "center";
-      ctx.fillText("PAUSED", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
-  }, [isPaused, theme]);
+  }, [isPaused, brokenPaddle, theme]);
 
-  const gameLoop = useCallback(
-    (currentTime) => {
-      if (gameState !== "playing") return;
+  const gameLoop = useCallback((currentTime) => {
+    if (gameState !== 'playing') return;
 
-      // Frame rate limiting
-      const deltaTime = currentTime - lastFrameTimeRef.current;
-      if (deltaTime < FRAME_INTERVAL) {
-        animationFrameRef.current = requestAnimationFrame(gameLoop);
-        return;
-      }
-      lastFrameTimeRef.current = currentTime - (deltaTime % FRAME_INTERVAL);
-
-      if (!isPaused) {
-        const { paddle1, paddle2, balls, powerups } = gameObjectsRef.current;
-
-        // Update paddle1 (local player or P1 in local multiplayer)
-        if (gameMode !== "online" || isHost) {
-          if (keysRef.current.ArrowUp || mobileControls.p1Up) {
-            paddle1.y = Math.max(0, paddle1.y - paddle1.speed);
-          }
-          if (keysRef.current.ArrowDown || mobileControls.p1Down) {
-            paddle1.y = Math.min(
-              CANVAS_HEIGHT - paddle1.height,
-              paddle1.y + paddle1.speed
-            );
-          }
-
-          if (gameMode === "online" && isHost) {
-            sendToOpponent({ type: "paddle", y: paddle1.y });
-          }
-        }
-
-        // Update paddle2
-        if (gameMode === "local") {
-          if (keysRef.current.w || keysRef.current.W || mobileControls.p2Up) {
-            paddle2.y = Math.max(0, paddle2.y - paddle2.speed);
-          }
-          if (keysRef.current.s || keysRef.current.S || mobileControls.p2Down) {
-            paddle2.y = Math.min(
-              CANVAS_HEIGHT - paddle2.height,
-              paddle2.y + paddle2.speed
-            );
-          }
-        } else if (gameMode === "ai" && balls.length > 0) {
-          const mainBall = balls[0];
-          const paddle2Center = paddle2.y + paddle2.height / 2;
-          const diff = mainBall.y - paddle2Center;
-          if (Math.abs(diff) > 10) {
-            paddle2.y +=
-              Math.sign(diff) * Math.min(paddle2.speed * 0.7, Math.abs(diff));
-            paddle2.y = Math.max(
-              0,
-              Math.min(CANVAS_HEIGHT - paddle2.height, paddle2.y)
-            );
-          }
-        } else if (gameMode === "online" && !isHost) {
-          if (keysRef.current.ArrowUp || mobileControls.p1Up) {
-            paddle2.y = Math.max(0, paddle2.y - paddle2.speed);
-          }
-          if (keysRef.current.ArrowDown || mobileControls.p1Down) {
-            paddle2.y = Math.min(
-              CANVAS_HEIGHT - paddle2.height,
-              paddle2.y + paddle2.speed
-            );
-          }
-          sendToOpponent({ type: "paddle", y: paddle2.y });
-        }
-
-        // Update balls
-        balls.forEach((ball, index) => {
-          ball.x += ball.dx;
-          ball.y += ball.dy;
-
-          // Wall collision
-          if (ball.y <= 0 || ball.y >= CANVAS_HEIGHT) {
-            ball.dy *= -1;
-            playSound(300, 0.1);
-            createParticles(ball.x, ball.y, theme.p1Color);
-          }
-
-          // Paddle collision
-          if (
-            ball.dx < 0 &&
-            ball.x <= paddle1.x + paddle1.width &&
-            ball.y >= paddle1.y &&
-            ball.y <= paddle1.y + paddle1.height
-          ) {
-            ball.dx = -ball.dx + 0.2;
-            ball.dy += (ball.y - paddle1.y - paddle1.height / 2) / 20;
-            playSound(400, 0.15);
-            createParticles(ball.x, ball.y, theme.p1Color);
-          }
-
-          if (
-            ball.dx > 0 &&
-            ball.x >= paddle2.x &&
-            ball.y >= paddle2.y &&
-            ball.y <= paddle2.y + paddle2.height
-          ) {
-            ball.dx = -ball.dx - 0.2;
-            ball.dy += (ball.y - paddle2.y - paddle2.height / 2) / 20;
-            playSound(400, 0.15);
-            createParticles(ball.x, ball.y, theme.p2Color);
-          }
-
-          // Score
-          if (ball.x < 0) {
-            scoreRef.current.p2++;
-            if (scoreRef.current.p2 >= winPoints) {
-              setGameState("gameOver");
-              playSound(600, 0.5, "triangle");
-            } else {
-              playSound(200, 0.3);
-              if (balls.length > 1) {
-                balls.splice(index, 1);
-              } else {
-                resetBall(index);
-              }
-            }
-          }
-
-          if (ball.x > CANVAS_WIDTH) {
-            scoreRef.current.p1++;
-            if (scoreRef.current.p1 >= winPoints) {
-              setGameState("gameOver");
-              playSound(600, 0.5, "triangle");
-            } else {
-              playSound(200, 0.3);
-              if (balls.length > 1) {
-                balls.splice(index, 1);
-              } else {
-                resetBall(index);
-              }
-            }
-          }
-        });
-
-        // Spawn powerups
-        const now = Date.now();
-        if (
-          now - lastPowerupTimeRef.current > 8000 &&
-          powerups.length < 2 &&
-          Math.random() < 0.02
-        ) {
-          const powerupType =
-            POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-          powerups.push({
-            x: CANVAS_WIDTH / 4 + Math.random() * (CANVAS_WIDTH / 2),
-            y: 50 + Math.random() * (CANVAS_HEIGHT - 100),
-            type: powerupType.id,
-            color: powerupType.color,
-            emoji: powerupType.emoji,
-            rotation: 0,
-          });
-          lastPowerupTimeRef.current = now;
-        }
-
-        // Update powerups
-        powerups.forEach((powerup, index) => {
-          powerup.rotation += 0.05;
-
-          balls.forEach((ball) => {
-            const dx = ball.x - powerup.x;
-            const dy = ball.y - powerup.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < POWERUP_SIZE) {
-              const collector = ball.dx < 0 ? "p2" : "p1";
-              applyPowerup(powerup, collector);
-              powerups.splice(index, 1);
-            }
-          });
-        });
-
-        // Update particles
-        particlesRef.current = particlesRef.current
-          .map((p) => ({
-            ...p,
-            x: p.x + p.dx,
-            y: p.y + p.dy,
-            dy: p.dy + 0.2,
-            life: p.life - 0.02,
-          }))
-          .filter((p) => p.life > 0);
-
-        // Sync game state for online mode
-        if (gameMode === "online" && isHost) {
-          sendToOpponent({
-            type: "gameState",
-            state: gameObjectsRef.current,
-            score: scoreRef.current,
-          });
-        }
-      }
-
-      draw();
+    // Frame rate limiting
+    const deltaTime = currentTime - lastFrameTimeRef.current;
+    if (deltaTime < FRAME_INTERVAL) {
       animationFrameRef.current = requestAnimationFrame(gameLoop);
-    },
-    [
-      gameState,
-      gameMode,
-      isPaused,
-      mobileControls,
-      winPoints,
-      isHost,
-      playSound,
-      createParticles,
-      resetBall,
-      applyPowerup,
-      sendToOpponent,
-      draw,
-      theme,
-    ]
-  );
+      return;
+    }
+    lastFrameTimeRef.current = currentTime - (deltaTime % FRAME_INTERVAL);
+
+    if (!isPaused && !isBreaking) {
+      // Update broken paddle pieces
+      if (brokenPaddle) {
+        brokenPaddlePiecesRef.current = brokenPaddlePiecesRef.current.map(piece => {
+          const newY = piece.y + piece.dy;
+          const newRotation = piece.rotation + piece.rotationSpeed;
+          
+          return {
+            ...piece,
+            y: newY,
+            rotation: newRotation,
+            life: piece.life - 0.01
+          };
+        }).filter(piece => piece.life > 0 && piece.y < CANVAS_HEIGHT);
+      }
+
+      const { paddle1, paddle2, balls, powerups } = gameObjectsRef.current;
+
+      // Update paddle1 (local player or P1 in local multiplayer)
+      if (gameMode !== 'online' || isHost) {
+        if (keysRef.current.ArrowUp || mobileControls.p1Up) {
+          paddle1.y = Math.max(0, paddle1.y - paddle1.speed);
+        }
+        if (keysRef.current.ArrowDown || mobileControls.p1Down) {
+          paddle1.y = Math.min(CANVAS_HEIGHT - paddle1.height, paddle1.y + paddle1.speed);
+        }
+        
+        if (gameMode === 'online' && isHost) {
+          sendToOpponent({ type: 'paddle', y: paddle1.y });
+        }
+      }
+
+      // Update paddle2
+      if (gameMode === 'local') {
+        if (keysRef.current.w || keysRef.current.W || mobileControls.p2Up) {
+          paddle2.y = Math.max(0, paddle2.y - paddle2.speed);
+        }
+        if (keysRef.current.s || keysRef.current.S || mobileControls.p2Down) {
+          paddle2.y = Math.min(CANVAS_HEIGHT - paddle2.height, paddle2.y + paddle2.speed);
+        }
+      } else if (gameMode === 'ai' && balls.length > 0) {
+        const mainBall = balls[0];
+        const paddle2Center = paddle2.y + paddle2.height / 2;
+        const diff = mainBall.y - paddle2Center;
+        if (Math.abs(diff) > 10) {
+          paddle2.y += Math.sign(diff) * Math.min(paddle2.speed * 0.7, Math.abs(diff));
+          paddle2.y = Math.max(0, Math.min(CANVAS_HEIGHT - paddle2.height, paddle2.y));
+        }
+      } else if (gameMode === 'online' && !isHost) {
+        if (keysRef.current.ArrowUp || mobileControls.p1Up) {
+          paddle2.y = Math.max(0, paddle2.y - paddle2.speed);
+        }
+        if (keysRef.current.ArrowDown || mobileControls.p1Down) {
+          paddle2.y = Math.min(CANVAS_HEIGHT - paddle2.height, paddle2.y + paddle2.speed);
+        }
+        sendToOpponent({ type: 'paddle', y: paddle2.y });
+      }
+
+      // Update balls
+      balls.forEach((ball, index) => {
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        // Wall collision
+        if (ball.y <= 0 || ball.y >= CANVAS_HEIGHT) {
+          ball.dy *= -1;
+          playSound(300, 0.1);
+          createParticles(ball.x, ball.y, theme.p1Color);
+        }
+
+        // Paddle collision
+        if (ball.dx < 0 && ball.x <= paddle1.x + paddle1.width &&
+            ball.y >= paddle1.y && ball.y <= paddle1.y + paddle1.height) {
+          ball.dx = -ball.dx + 0.2;
+          ball.dy += (ball.y - paddle1.y - paddle1.height / 2) / 20;
+          playSound(400, 0.15);
+          createParticles(ball.x, ball.y, theme.p1Color);
+        }
+
+        if (ball.dx > 0 && ball.x >= paddle2.x &&
+            ball.y >= paddle2.y && ball.y <= paddle2.y + paddle2.height) {
+          ball.dx = -ball.dx - 0.2;
+          ball.dy += (ball.y - paddle2.y - paddle2.height / 2) / 20;
+          playSound(400, 0.15);
+          createParticles(ball.x, ball.y, theme.p2Color);
+        }
+
+        // Score
+        if (ball.x < 0) {
+          scoreRef.current.p2++;
+          if (scoreRef.current.p2 >= winPoints) {
+            setGameState('gameOver');
+            playSound(600, 0.5, 'triangle');
+          } else {
+            playSound(200, 0.3);
+            createBrokenPaddleEffect(paddle1, true);
+            setTimeout(() => {
+              if (balls.length > 1) {
+                balls.splice(index, 1);
+              } else {
+                resetBall(index);
+              }
+            }, 1000);
+          }
+        }
+
+        if (ball.x > CANVAS_WIDTH) {
+          scoreRef.current.p1++;
+          if (scoreRef.current.p1 >= winPoints) {
+            setGameState('gameOver');
+            playSound(600, 0.5, 'triangle');
+          } else {
+            playSound(200, 0.3);
+            createBrokenPaddleEffect(paddle2, false);
+            setTimeout(() => {
+              if (balls.length > 1) {
+                balls.splice(index, 1);
+              } else {
+                resetBall(index);
+              }
+            }, 1000);
+          }
+        }
+      });
+
+      // Spawn powerups
+      const now = Date.now();
+      if (now - lastPowerupTimeRef.current > 8000 && powerups.length < 2 && Math.random() < 0.02) {
+        const powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+        powerups.push({
+          x: CANVAS_WIDTH / 4 + Math.random() * (CANVAS_WIDTH / 2),
+          y: 50 + Math.random() * (CANVAS_HEIGHT - 100),
+          type: powerupType.id,
+          color: powerupType.color,
+          emoji: powerupType.emoji,
+          rotation: 0
+        });
+        lastPowerupTimeRef.current = now;
+      }
+
+      // Update powerups
+      powerups.forEach((powerup, index) => {
+        powerup.rotation += 0.05;
+        
+        balls.forEach(ball => {
+          const dx = ball.x - powerup.x;
+          const dy = ball.y - powerup.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < POWERUP_SIZE) {
+            const collector = ball.dx < 0 ? 'p2' : 'p1';
+            applyPowerup(powerup, collector);
+            powerups.splice(index, 1);
+          }
+        });
+      });
+
+      // Update particles
+      particlesRef.current = particlesRef.current.map(p => ({
+        ...p,
+        x: p.x + p.dx,
+        y: p.y + p.dy,
+        dy: p.dy + 0.2,
+        life: p.life - 0.02
+      })).filter(p => p.life > 0);
+
+      // Sync game state for online mode
+      if (gameMode === 'online' && isHost) {
+        sendToOpponent({
+          type: 'winPoints',
+          state: winPoints
+        });
+        sendToOpponent({
+          type: 'gameState',
+          state: gameObjectsRef.current,
+          score: scoreRef.current
+        });
+      }
+    }
+
+    draw();
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+  }, [gameState, gameMode, isPaused, mobileControls, winPoints, isHost, playSound, createParticles, resetBall, applyPowerup, sendToOpponent, draw, brokenPaddle, isBreaking, createBrokenPaddleEffect]);
 
   useEffect(() => {
-    if (gameState === "playing") {
+    if (gameState === 'playing') {
       lastFrameTimeRef.current = performance.now();
       animationFrameRef.current = requestAnimationFrame(gameLoop);
     }
-
+    
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -757,21 +724,20 @@ const ModernPong = () => {
       keysRef.current[e.key] = false;
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
 
   // Load PeerJS
   useEffect(() => {
     if (!window.Peer) {
-      const script = document.createElement("script");
-      script.src =
-        "https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js";
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js';
       script.async = true;
       document.body.appendChild(script);
     }
@@ -779,7 +745,7 @@ const ModernPong = () => {
 
   const handleModeSelect = (mode) => {
     setGameMode(mode);
-    if (mode === "online") {
+    if (mode === 'online') {
       initOnlineMode();
     } else {
       setSearchingMatch(false);
@@ -789,9 +755,7 @@ const ModernPong = () => {
   };
 
   return (
-    <div
-      className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center p-4`}
-    >
+    <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center p-4`}>
       <div className="w-full max-w-4xl">
         {/* Theme Selector */}
         <div className="fixed top-4 right-4 z-10">
@@ -837,18 +801,15 @@ const ModernPong = () => {
             </div>
           )}
         </div>
-
-        {gameState === "menu" && (
+        {gameState === 'menu' && (
           <div className="text-center space-y-8">
             <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500 mb-8">
               NEON PONG
             </h1>
-
+            
             <div className="bg-slate-800/50 backdrop-blur p-6 rounded-lg">
-              <label className="block text-cyan-300 text-lg mb-3">
-                Win Points
-              </label>
-              <select
+              <label className="block text-cyan-300 text-lg mb-3">Win Points</label>
+              <select 
                 value={winPoints}
                 onChange={(e) => setWinPoints(Number(e.target.value))}
                 className="bg-slate-700 text-white px-6 py-3 rounded-lg text-lg cursor-pointer hover:bg-slate-600 transition"
@@ -862,19 +823,19 @@ const ModernPong = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
-                onClick={() => handleModeSelect("ai")}
+                onClick={() => handleModeSelect('ai')}
                 className="flex justify-center items-center gap-2 cursor-pointer bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-8 py-6 rounded-lg text-xl font-bold transition transform hover:scale-105 shadow-lg"
               >
                 <Bot /> VS AI
               </button>
               <button
-                onClick={() => handleModeSelect("local")}
+                onClick={() => handleModeSelect('local')}
                 className="flex justify-center items-center gap-2 cursor-pointer bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-6 rounded-lg text-xl font-bold transition transform hover:scale-105 shadow-lg"
               >
                 <UsersRound /> Local 2P
               </button>
               <button
-                onClick={() => handleModeSelect("online")}
+                onClick={() => handleModeSelect('online')}
                 className="flex justify-center items-center gap-2 cursor-pointer bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-6 rounded-lg text-xl font-bold transition transform hover:scale-105 shadow-lg"
               >
                 <Globe /> Online
@@ -886,8 +847,7 @@ const ModernPong = () => {
         {searchingMatch && (
           <div className="text-center space-y-6 mt-4">
             <div className="text-lg text-white bg-slate-800 p-4 rounded-lg inline-block">
-              Your Room ID:{" "}
-              <span className="text-cyan-300 font-mono">{roomId}</span>
+              Your Room ID: <span className="text-cyan-300 font-mono">{roomId}</span>
             </div>
             <div className="text-sm text-gray-400">
               Enter a room id bellow and then click Enter
@@ -900,7 +860,7 @@ const ModernPong = () => {
                 onInput={(e) => setEnteredRoomId(e.target.value)}
               />
             </div>
-            <div className="flex justify-center items-center gap-3 my-2">
+            <div className='flex justify-center items-center gap-3 my-2'>
               <button
                 onClick={() => connectToOpponent(enteredRoomId)}
                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold cursor-pointer"
@@ -920,14 +880,14 @@ const ModernPong = () => {
           </div>
         )}
 
-        {gameState === "playing" && (
+        {gameState === 'playing' && (
           <div className="space-y-4">
             <div className="flex justify-center gap-2">
-              {gameMode !== "online" && (
+              {gameMode !== 'online' && (
                 <>
                   <button
                     onClick={() => {
-                      setGameState("menu");
+                      setGameState('menu');
                       setGameMode(null);
                       resetGame();
                     }}
@@ -949,7 +909,7 @@ const ModernPong = () => {
                   </button>
                 </>
               )}
-              {gameMode === "online" && (
+              {gameMode === 'online' && (
                 <button
                   onClick={disconnectOnline}
                   className="flex justify-center items-center gap-2 bg-red-500 hover:bg-red-600 text-white p-3 rounded-lg transition"
@@ -959,7 +919,7 @@ const ModernPong = () => {
               )}
             </div>
 
-            <div className="relative mx-auto" style={{ maxWidth: "800px" }}>
+            <div className="relative mx-auto" style={{ maxWidth: '800px' }}>
               <canvas
                 ref={canvasRef}
                 width={CANVAS_WIDTH}
@@ -972,49 +932,33 @@ const ModernPong = () => {
               <div className="space-y-2">
                 <div className="text-center text-cyan-400 font-bold">P1</div>
                 <button
-                  onTouchStart={() =>
-                    setMobileControls((p) => ({ ...p, p1Up: true }))
-                  }
-                  onTouchEnd={() =>
-                    setMobileControls((p) => ({ ...p, p1Up: false }))
-                  }
+                  onTouchStart={() => setMobileControls(p => ({ ...p, p1Up: true }))}
+                  onTouchEnd={() => setMobileControls(p => ({ ...p, p1Up: false }))}
                   className="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded-lg font-bold"
                 >
                   ↑ UP
                 </button>
                 <button
-                  onTouchStart={() =>
-                    setMobileControls((p) => ({ ...p, p1Down: true }))
-                  }
-                  onTouchEnd={() =>
-                    setMobileControls((p) => ({ ...p, p1Down: false }))
-                  }
+                  onTouchStart={() => setMobileControls(p => ({ ...p, p1Down: true }))}
+                  onTouchEnd={() => setMobileControls(p => ({ ...p, p1Down: false }))}
                   className="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded-lg font-bold"
                 >
                   ↓ DOWN
                 </button>
               </div>
-              {gameMode === "local" && (
+              {gameMode === 'local' && (
                 <div className="space-y-2">
                   <div className="text-center text-pink-500 font-bold">P2</div>
                   <button
-                    onTouchStart={() =>
-                      setMobileControls((p) => ({ ...p, p2Up: true }))
-                    }
-                    onTouchEnd={() =>
-                      setMobileControls((p) => ({ ...p, p2Up: false }))
-                    }
+                    onTouchStart={() => setMobileControls(p => ({ ...p, p2Up: true }))}
+                    onTouchEnd={() => setMobileControls(p => ({ ...p, p2Up: false }))}
                     className="w-full bg-pink-500 hover:bg-pink-600 text-white py-4 rounded-lg font-bold"
                   >
                     ↑ UP
                   </button>
                   <button
-                    onTouchStart={() =>
-                      setMobileControls((p) => ({ ...p, p2Down: true }))
-                    }
-                    onTouchEnd={() =>
-                      setMobileControls((p) => ({ ...p, p2Down: false }))
-                    }
+                    onTouchStart={() => setMobileControls(p => ({ ...p, p2Down: true }))}
+                    onTouchEnd={() => setMobileControls(p => ({ ...p, p2Down: false }))}
                     className="w-full bg-pink-500 hover:bg-pink-600 text-white py-4 rounded-lg font-bold"
                   >
                     ↓ DOWN
@@ -1025,7 +969,7 @@ const ModernPong = () => {
           </div>
         )}
 
-        {gameState === "gameOver" && (
+        {gameState === 'gameOver' && (
           <div className="text-center space-y-6">
             <h2 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
               GAME OVER
@@ -1044,7 +988,7 @@ const ModernPong = () => {
               <button
                 onClick={() => {
                   resetGame();
-                  setGameState("playing");
+                  setGameState('playing');
                 }}
                 className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-4 rounded-lg text-xl font-bold transition transform hover:scale-105"
               >
@@ -1052,10 +996,10 @@ const ModernPong = () => {
               </button>
               <button
                 onClick={() => {
-                  if (gameMode === "online") {
+                  if (gameMode === 'online') {
                     disconnectOnline();
                   }
-                  setGameState("menu");
+                  setGameState('menu');
                   setGameMode(null);
                   resetGame();
                 }}
